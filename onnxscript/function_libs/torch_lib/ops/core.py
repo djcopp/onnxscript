@@ -5057,6 +5057,11 @@ def _aten_index_onnx(
 
     # Broadcast the indices to the same shape then concatenate
     not_none_indices = [idx for idx in indices if idx is not None]
+    # PyTorch accepts int32 index tensors, but ONNX GatherND only accepts int64 indices.
+    not_none_indices = [
+        idx if idx.dtype == ir.DataType.INT64 else op.Cast(idx, to=INT64.dtype)
+        for idx in not_none_indices
+    ]
     broadcast_shape = _shape_of_broadcast_tensors(*not_none_indices)
     final_index = op.Concat(
         *(op.Unsqueeze(op.Expand(idx, broadcast_shape), [-1]) for idx in not_none_indices),

@@ -45,6 +45,32 @@ class TorchLibe2eTest(unittest.TestCase):
         onnx_program = torch.onnx.export(model, xs, dynamo=True)
         _testing.assert_onnx_program(onnx_program)
 
+    def test_index_with_int32_indices(self):
+        # GatherND only accepts int64 indices; int32 index tensors must be cast, not passed through.
+        class Model(torch.nn.Module):
+            def forward(self, table, idx):
+                return table[idx]
+
+        xs = (
+            torch.arange(20, dtype=torch.float32).reshape(10, 2),
+            torch.tensor([3, 0, 9, 3], dtype=torch.int32),
+        )
+        onnx_program = torch.onnx.export(Model(), xs, dynamo=True)
+        _testing.assert_onnx_program(onnx_program)
+
+    def test_index_with_mixed_int32_int64_indices(self):
+        class Model(torch.nn.Module):
+            def forward(self, table, rows, cols):
+                return table[rows, cols]
+
+        xs = (
+            torch.arange(12, dtype=torch.float32).reshape(3, 4),
+            torch.tensor([2, 0, 1], dtype=torch.int32),
+            torch.tensor([3, 1, 0], dtype=torch.int64),
+        )
+        onnx_program = torch.onnx.export(Model(), xs, dynamo=True)
+        _testing.assert_onnx_program(onnx_program)
+
     def test_pow_tensor_scalar_int_float(self):
         class PowModel(torch.nn.Module):
             def forward(self, x: torch.Tensor) -> torch.Tensor:
